@@ -372,12 +372,13 @@ class Agent:
         return
 
     async def calculate_pred_accuracy(self):
+      print("predicting accuracies")
         for player in list(self.predictions.keys()):
             for other in list(self.predictions[player].keys()):
                 pred = self.predictions[player][other]["prediction"]
                 if isinstance(pred, dict):
                     pred = [pred]
-                elif (not isinstance(pred, list)) or (len(pred) == 0):
+                if (not isinstance(pred, list)) or (len(pred) == 0):
                     self.predictions[player][other]["accuracy"] = "invalid"
                     continue
                 action = self.actions[other]["action"]
