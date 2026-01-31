@@ -382,7 +382,7 @@ class Agent:
                     self.predictions[player][other]["accuracy"] = "invalid"
                     continue
                 action = self.actions[other]["action"]
-                if (not isinstance(action, list) or len(action) == 0):
+                if (not isinstance(action, list)) or (len(action) == 0):
                     self.predictions[player][other]["accuracy"] = "invalid"
                     continue
                 if self.task["Game"] == "Survivor":
