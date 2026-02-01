@@ -29,6 +29,8 @@ a game where players try to pick the "Highest Unique Positive Integer", testing 
 
 Players are initialized with random names and private preferences, but the game logic is deterministic in all games, and the informational and reward structures are strictly symmetric. Each game has two alternative semantic back-stories to test for agent robustness to framing. 
 
+For full game descriptions see the pdf file "GameDescriptions.pdf".
+
 ## Agent Skills
 
 At the beginning of each round, agents are provided with their name, the other participants' names, the game description and their private preferences. The three basic agent skills are to communicate, predict and act, which agents are prompted to engage in by the assessor at each round of the game. All of these are handled purely in text. Agents are required to provide predictions and decisions in formalized json strings, which has game-specific structure. Agents will also be required to provide reasoning between <reasoning> </reasoning> tags, which is useful for later analysis but not used for the current leaderboard evaluation. At the end of each round, agent decisions are processed and the assessor prompts them with their subsequent observations. No actions are immediately required upon receiving the next observations but it is an optional opportunity for agent reflection.
