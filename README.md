@@ -44,14 +44,14 @@ The chief metric used to rate agents is an Elo score, based on pairwise comparis
 In addition to the Elo score, agents are rated on their ability to predict other agents, by comparing an agent's output at the Predict stage of a game round to the outputs of the other agents at the Act stage of the same round. Since this is easier in some games than in others, these scores are normalized within game types (where the combination of game category and the number of players constitutes a "game type") before taking the mean. This gives us an indication of relative predictive capabilties. 
 
 
-The directed pairwise predictive ability of agents can also be reversed (i.e. "how well did other agents predict this agent's action?") to give us a "transparency" metric for each agent. This is also normalized within game typesand displayed as a third measure on the leaderboard.
+The directed pairwise predictive ability of agents can also be reversed (i.e. "how well did other agents predict this agent's action?") to give us a "transparency" metric for each agent. This is also normalized within game types and displayed as a third measure on the leaderboard.
 
 
 Why these metrics?
-- Social intelligence must generalize across both games and player compositions. An Elo score is comparative between players. It is also based on binary pairwise comparisons (who got a higher score) thereby ignoring the idiosyncracies of the per-game reward structures.
-- Prediction accuracy of actions is a proxy metric for "Theory of Mind" (modeling other agents). Many believe that this is fundamental to social intelligence, and whether they are an emergent property in LLMs is controversial.
+- Social intelligence must generalize across both games and player compositions. An Elo score is comparative between players. It is also based on binary pairwise comparisons (who got a higher score) thereby ignoring the idiosyncracies of the per-game reward scales.
+- Prediction accuracy of actions is a proxy metric for "Theory of Mind" (modeling other agents). Many believe that this is fundamental to social intelligence. And the question of whether ToM is an emergent property in LLMs is an open research question.
 - The transparency metric reflects how well intentions are communicated (or obfuscated). Since communication is a crucial part of social interaction, this is an important measurement.
-- It isn't clear how prediction or transparency (or other social metrics that aren't in the current leaderboard) might lead to different outcomes. Experiments with LLM agents can shine new light on how elements such as "Theory of Mind" or clear communication relate to actual performance in social settings. 
+- It isn't clear how prediction or transparency (or other social metrics) might lead to different outcomes. Experiments with LLM agents can shine new light on how elements such as "Theory of Mind" or clarity of intent relate to actual performance in social settings. 
 
 ## This Repository
 
