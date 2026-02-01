@@ -372,7 +372,7 @@ class Agent:
         return
 
     async def calculate_pred_accuracy(self):
-      print("predicting accuracies")
+        print("predicting accuracies")
         for player in list(self.predictions.keys()):
             for other in list(self.predictions[player].keys()):
                 pred = self.predictions[player][other]["prediction"]
@@ -388,14 +388,17 @@ class Agent:
                 if self.task["Game"] == "Survivor":
                     predictions = [p["Target"] for p in pred if p["Shots"] > 0]
                     actions = [a["Target"] for a in action if a["Shots"] > 0]
-                    numplayers = len(list(set(predictions + actions)))
-                    misses1 = sum([1 if x not in actions else 0 for x in predictions])
-                    misses2 = sum([1 if x not in predictions else 0 for x in actions])
-                    misses = misses1 + misses2
-                    if numplayers > 0:
-                        acc = (numplayers - misses) / (numplayers)
-                    else:
+                    if (not predictions) and (not actions):
                         acc = 1
+                    else:
+                        numplayers = len(list(set(predictions + actions)))
+                        if numplayers == 0:
+                            acc = 1
+                        else:
+                            misses1 = sum([1 if x not in actions else 0 for x in predictions])
+                            misses2 = sum([1 if x not in predictions else 0 for x in actions])
+                            misses = misses1 + misses2
+                            acc = (numplayers - misses) / (numplayers)
                     self.predictions[player][other]["accuracy"] = acc
                 elif self.task["Game"] == "Scheduler":
                     acc = 1 if list(pred[0].values())[0] == list(action[0].values())[0] else 0
@@ -484,11 +487,11 @@ class Agent:
                         pred_other = stage["Predictions"][other["Name"]].get(player["Name"])
                         if isinstance(pred_other, dict) and (isinstance(pred_other["accuracy"], float) or isinstance(pred_other["accuracy"], int)):
                             transparency.append(pred_other["accuracy"])
-            if len(preds) > 0:
+            if preds and isinstance(preds, list) and (len(preds) > 0):
                 log["PredAccuracy"][player["Agent"]] = sum(preds)/len(preds)
             else:
                 log["PredAccuracy"][player["Agent"]] = -1
-            if len(transparency) > 0:
+            if transparency and isinstance(transparency, list) and (len(transparency) > 0):
                 log["Transparency"][player["Agent"]] = sum(transparency)/len(transparency)
             else:
                 log["Transparency"][player["Agent"]] = -1
