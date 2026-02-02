@@ -131,11 +131,11 @@ class Model:
             for i in range(5):
                 self.num_requests += 1
                 if self.rpm is not None:
-                    time.sleep((60 / self.rpm) + 0.2)
+                    time.sleep((60 / self.rpm) + 1)
                 self.num_requests += 1
                 now = time.time()
                 if (self.rpm is not None) and (self.num_requests >= self.rpm) and (now - self.last_time <= 60):
-                    time.sleep(60 - (now - self.last_time))
+                    time.sleep(60)
                     self.num_requests = 0
                     self.last_time = time.time()
                 # get response
@@ -146,7 +146,7 @@ class Model:
                     print("Response: ", response)
                     print("Error: ", str(e))
                     if i < 4:
-                        time.sleep(5)
+                        time.sleep(15)
                     elif i == 4:
                         return "Error: " + str(e)
 
@@ -156,7 +156,7 @@ class Model:
                     print(str(response))
                     print(err_msg)
                     if i < 4:
-                        time.sleep(5)
+                        time.sleep(60)
                     elif i == 4:
                         return err_msg
 
@@ -167,6 +167,7 @@ class Model:
                     return response.choices[0].message.content
 
                 
+
 
 
 
