@@ -116,7 +116,7 @@ class Agent:
         min_size = request.config.get("min_size", 2)
         for i in range(min_size, min(num_agents + 1, max_size + 1)):
             if required is not None:
-                compositions += [x for x in combinations(list(request.participants.items()), i) if all([p in list(x) for p in required])]
+                compositions += [x for x in combinations(list(request.participants.items()), i) if all([p in [v["name"] for v in list(x)] for p in required])]
             else:
                 compositions += [x for x in combinations(list(request.participants.items()), i)]
 
