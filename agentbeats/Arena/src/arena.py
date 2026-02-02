@@ -398,7 +398,13 @@ class Agent:
                             misses1 = sum([1 if x not in actions else 0 for x in predictions])
                             misses2 = sum([1 if x not in predictions else 0 for x in actions])
                             misses = misses1 + misses2
-                            acc = (numplayers - misses) / (numplayers)
+                            if numplayers == 0:
+                                acc = 1
+                            else:
+                                try:
+                                    acc = (numplayers - misses) / (numplayers)
+                                except Exception:
+                                    acc = "invalid"
                     self.predictions[player][other]["accuracy"] = acc
                 elif self.task["Game"] == "Scheduler":
                     acc = 1 if list(pred[0].values())[0] == list(action[0].values())[0] else 0
@@ -488,11 +494,17 @@ class Agent:
                         if isinstance(pred_other, dict) and (isinstance(pred_other["accuracy"], float) or isinstance(pred_other["accuracy"], int)):
                             transparency.append(pred_other["accuracy"])
             if preds and isinstance(preds, list) and (len(preds) > 0):
-                log["PredAccuracy"][player["Agent"]] = sum(preds)/len(preds)
+                try:
+                    log["PredAccuracy"][player["Agent"]] = sum(preds)/len(preds)
+                except Exception:
+                    log["PredAccuracy"][player["Agent"]] = -1
             else:
                 log["PredAccuracy"][player["Agent"]] = -1
             if transparency and isinstance(transparency, list) and (len(transparency) > 0):
-                log["Transparency"][player["Agent"]] = sum(transparency)/len(transparency)
+                try:
+                    log["Transparency"][player["Agent"]] = sum(transparency)/len(transparency)
+                except Exception:
+                    log["Transparency"][player["Agent"]] = -1
             else:
                 log["Transparency"][player["Agent"]] = -1
         end_time = time.time()
