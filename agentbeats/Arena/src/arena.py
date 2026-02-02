@@ -391,20 +391,17 @@ class Agent:
                     if (not predictions) and (not actions):
                         acc = 1
                     else:
+                        misses1 = sum([1 if x not in actions else 0 for x in predictions])
+                        misses2 = sum([1 if x not in predictions else 0 for x in actions])
+                        misses = misses1 + misses2
                         numplayers = len(list(set(predictions + actions)))
                         if numplayers == 0:
                             acc = 1
                         else:
-                            misses1 = sum([1 if x not in actions else 0 for x in predictions])
-                            misses2 = sum([1 if x not in predictions else 0 for x in actions])
-                            misses = misses1 + misses2
-                            if numplayers == 0:
-                                acc = 1
-                            else:
-                                try:
-                                    acc = (numplayers - misses) / (numplayers)
-                                except Exception:
-                                    acc = "invalid"
+                            try:
+                                acc = (numplayers - misses) / (numplayers)
+                            except Exception:
+                                acc = "invalid"
                     self.predictions[player][other]["accuracy"] = acc
                 elif self.task["Game"] == "Scheduler":
                     acc = 1 if list(pred[0].values())[0] == list(action[0].values())[0] else 0
