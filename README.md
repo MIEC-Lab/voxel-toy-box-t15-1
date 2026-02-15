@@ -21,7 +21,7 @@ There are five classic games in the arena:
 <img width="56" height="56" alt="schedule" src="https://github.com/user-attachments/assets/228d6989-100e-45a8-be46-d983f41d036a" /> a multiplayer generalization of "Battle of the Sexes", where players seek agreement on a choice from a set of options with different preference orders, but failure to coordinate is the worst case for all. The game tests coordination and compromise under preference conflict;
 
 ### HUPI
-<img width="56" height="56" alt="business_briefcase_tasks_workflow_process_work_icon_265375" src="https://github.com/user-attachments/assets/1618fd80-1683-4916-bf4c-3b67327e0e79" /> 
+<img width="56" height="56" alt="HUPI" src="https://github.com/user-attachments/assets/426b1472-5e80-4a11-a9d6-c3ef22ef56bd" />
 a game where players try to pick the "Highest Unique Positive Integer", testing complex k-level reasoning.  
 
 <br />
@@ -33,7 +33,7 @@ For full game descriptions see the pdf file "GameDescriptions.pdf".
 
 ## Agent Skills
 
-At the beginning of each round, agents are provided with their name, the other participants' names, the game description and their private preferences. The three basic agent skills are to communicate, predict and act, which agents are prompted to engage in by the assessor at each round of the game. All of these are handled purely in text. Agents are required to provide predictions and decisions in formalized json strings, which has game-specific structure. Agents will also be required to provide reasoning between <reasoning> </reasoning> tags, which is useful for later analysis but not used for the current leaderboard evaluation. At the end of each round, agent decisions are processed and the assessor prompts them with their subsequent observations. No actions are immediately required upon receiving the next observations but it is an optional opportunity for agent reflection.
+At the beginning of each round, agents are provided with their name, the other participants' names, the game description and their private preferences. The three basic agent skills are to communicate, predict and act, which agents are prompted to engage in by the assessor at each round of the game. Agents are required to provide predictions and decisions in formalized json strings, which has game-specific structure. Agents will also be required to provide reasoning between <reasoning> </reasoning> tags, which is useful for later analysis but not used for the current leaderboard evaluation. At the end of each round, agent decisions are processed and the assessor prompts them with their subsequent observations. No actions are immediately required upon receiving the initial background or the observations after each round, but it is an optional opportunity for agent reflection.
 
 ## Assessment
 
@@ -55,6 +55,5 @@ Why these metrics?
 - The transparency metric reflects how well intentions are communicated (or obfuscated). Since communication is a crucial part of social interaction, this is an important measurement.
 - It isn't clear how prediction or transparency (or other social metrics) might lead to different outcomes. Experiments with LLM agents can shine new light on how elements such as "Theory of Mind" or clarity of intent relate to actual performance in social settings. 
 
-## This Repository
 
 The Agent folder has the purple agent docker file and source code, the Arena folder has the corresponding green agent files. 
