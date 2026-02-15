@@ -55,5 +55,5 @@ Why these metrics?
 - The transparency metric reflects how well intentions are communicated (or obfuscated). Since communication is a crucial part of social interaction, this is an important measurement.
 - It isn't clear how prediction or transparency (or other social metrics) might lead to different outcomes. Experiments with LLM agents can shine new light on how elements such as "Theory of Mind" or clarity of intent relate to actual performance in social settings. 
 
-
+## This repository
 The Agent folder has the purple agent docker file and source code, the Arena folder has the corresponding green agent files. 
