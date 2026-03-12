@@ -23,6 +23,12 @@ class Model:
         self.tokens_used = 0
         self.last_time = time.time()
 
+        if self.provider == "NEBIUS":
+            if api_key is None:
+                print("Error: Nebius needs an API key")
+                exit()
+            self.llm = OpenAI(base_url="https://api.tokenfactory.nebius.com/v1/", api_key=api_key)
+        
         if self.provider == "GOOGLE":
             if api_key is None:
                 print("Error: Google model needs an API key")
@@ -30,7 +36,7 @@ class Model:
             if self.rpm is None:
                 self.rpm = 15
             if self.rpd is None:
-                self.rpd = 1000
+                self.rpd = 500
             if self.tpm is None:
                 self.tpm = 250000
             self.llm = genai.Client(api_key=api_key)
@@ -90,7 +96,7 @@ class Model:
                         time.sleep(5)
             return response.text
 
-        elif self.provider == "OPENAI":
+        elif self.provider == "OPENAI" or self.prodiver == "NEBIUS":
             for _ in range(3):
                 try:
                     response = self.llm.responses.create(
@@ -167,6 +173,7 @@ class Model:
                     return response.choices[0].message.content
 
                 
+
 
 
 
