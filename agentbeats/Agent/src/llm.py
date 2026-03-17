@@ -95,7 +95,25 @@ class Model:
                         time.sleep(5)
             return response.text
 
-        elif self.provider == "OPENAI" or self.provider == "NEBIUS":
+        elif self.provider == "NEBIUS":
+            for _ in range(3):
+                try:
+                    response = self.llm.completions.create(
+                        model=self.model,
+                        messages=prompt)
+                response = response.choices[0].message.content
+                break
+                except openai.RateLimitError as e:
+                        response = f"Error: {e}"
+                        print(response)
+                        time.sleep(60)
+                    except Exception as e:
+                        response = f"Error: {e}"
+                        print(response)
+                        time.sleep(5)
+                return response
+        
+        elif self.provider == "OPENAI":
             for _ in range(3):
                 try:
                     response = self.llm.responses.create(
