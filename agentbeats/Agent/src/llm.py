@@ -79,8 +79,7 @@ class Model:
                 # get response
                 try:
                     response = self.llm.models.generate_content(model=self.model,
-                                                                  contents=messages,
-                                                                  config=types.GenerateContentConfig(safety_settings=self.safety_config))
+                                                                  contents=messages)
                     # check token usage also after generation
                     self.tokens_used += response.usage_metadata.total_token_count
                     if (self.tpm is not None) and (self.tokens_used >= self.tpm) and (now - self.last_time <= 60):
