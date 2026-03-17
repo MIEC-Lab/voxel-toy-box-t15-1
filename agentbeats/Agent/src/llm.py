@@ -95,7 +95,7 @@ class Model:
                         time.sleep(5)
             return response.text
 
-        elif self.provider == "OPENAI" or self.prodiver == "NEBIUS":
+        elif self.provider == "OPENAI" or self.provider == "NEBIUS":
             for _ in range(3):
                 try:
                     response = self.llm.responses.create(
