@@ -101,8 +101,8 @@ class Model:
                     response = self.llm.completions.create(
                         model=self.model,
                         messages=prompt)
-                response = response.choices[0].message.content
-                break
+                    response = response.choices[0].message.content
+                    break
                 except openai.RateLimitError as e:
                         response = f"Error: {e}"
                         print(response)
