@@ -96,12 +96,13 @@ class Model:
             return response.text
 
         elif self.provider == "NEBIUS":
+            messages = json.dumps(prompt)
             for _ in range(3):
                 try:
                     response = self.llm.completions.create(
                         model=self.model,
-                        messages=prompt)
-                    response = response.choices[0].message.content
+                        prompt=messages)
+                    response = response.choices[0].text
                     break
                 except openai.RateLimitError as e:
                     response = f"Error: {e}"
