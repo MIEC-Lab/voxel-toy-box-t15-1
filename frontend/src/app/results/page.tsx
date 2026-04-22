@@ -1,14 +1,29 @@
-"use client";
-
 import Link from "next/link";
-import { Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+type SearchParamValue = string | string[] | undefined;
 
-function ResultsContent() {
-  const searchParams = useSearchParams();
-  const game = searchParams.get("game") ?? "Survivor";
-  const players = searchParams.get("players") ?? "6";
-  const rounds = searchParams.get("rounds") ?? "10";
+type ResultsPageProps = {
+  searchParams?: Promise<{
+    game?: SearchParamValue;
+    players?: SearchParamValue;
+    rounds?: SearchParamValue;
+  }>;
+};
+
+function getSingleValue(value: SearchParamValue, fallback: string) {
+  if (Array.isArray(value)) {
+    return value[0] ?? fallback;
+  }
+
+  return value ?? fallback;
+}
+
+export default async function ResultsPage({
+  searchParams,
+}: ResultsPageProps) {
+  const params = (await searchParams) ?? {};
+  const game = getSingleValue(params.game, "Survivor");
+  const players = getSingleValue(params.players, "6");
+  const rounds = getSingleValue(params.rounds, "10");
 
   return (
     <main className="min-h-screen bg-[linear-gradient(135deg,_#020617,_#0f172a_45%,_#111827)] text-white">
@@ -48,32 +63,5 @@ function ResultsContent() {
         </div>
       </section>
     </main>
-  );
-}
-
-function ResultsFallback() {
-  return (
-    <main className="min-h-screen bg-[linear-gradient(135deg,_#020617,_#0f172a_45%,_#111827)] text-white">
-      <section className="mx-auto max-w-5xl px-6 py-10 sm:px-8">
-        <div className="rounded-[32px] border border-white/10 bg-white/6 p-8 backdrop-blur">
-          <p className="text-sm font-semibold uppercase tracking-[0.3em] text-cyan-300">
-            Loading Results
-          </p>
-          <h1 className="mt-4 text-4xl font-bold">Preparing Match Results</h1>
-          <p className="mt-4 text-slate-300">
-            The page is reading the latest match parameters and preparing the
-            current demo view.
-          </p>
-        </div>
-      </section>
-    </main>
-  );
-}
-
-export default function ResultsPage() {
-  return (
-    <Suspense fallback={<ResultsFallback />}>
-      <ResultsContent />
-    </Suspense>
   );
 }
