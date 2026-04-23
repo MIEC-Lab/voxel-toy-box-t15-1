@@ -1,0 +1,24 @@
+{
+  "match_id": "mock-survivor-002",
+  "game": "Survivor",
+  "rounds": 3,
+  "winner": "Alice",
+  "players": [
+    {
+      "name": "Alice",
+      "score": 6,
+      "status": "alive"
+    },
+    {
+      "name": "Bob",
+      "score": 4,
+      "status": "eliminated"
+    },
+    {
+      "name": "Carol",
+      "score": 2,
+      "status": "eliminated"
+    }
+  ],
+  "summary": "This is a placeholder match result generated for frontend integration."
+}

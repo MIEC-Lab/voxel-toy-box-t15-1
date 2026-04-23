@@ -1,0 +1,24 @@
+{
+  "match_id": "example-match",
+  "game": "Coalition",
+  "rounds": 4,
+  "winner": "Benjamin",
+  "players": [
+    {
+      "name": "Benjamin",
+      "score": 12,
+      "status": "winner"
+    },
+    {
+      "name": "Aisha",
+      "score": 9,
+      "status": "ally"
+    },
+    {
+      "name": "Chen",
+      "score": 5,
+      "status": "eliminated"
+    }
+  ],
+  "summary": "Benjamin forms the strongest coalition and finishes with the highest payoff."
+}
