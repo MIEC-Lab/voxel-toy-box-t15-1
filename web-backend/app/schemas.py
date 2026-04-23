@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class GameListResponse(BaseModel):
@@ -11,6 +11,12 @@ class PlayerResult(BaseModel):
     status: str
 
 
+class RoundLog(BaseModel):
+    round: int
+    events: list[str] = Field(default_factory=list)
+    remaining_players: list[str] = Field(default_factory=list)
+
+
 class MatchResultResponse(BaseModel):
     match_id: str
     game: str
@@ -18,12 +24,17 @@ class MatchResultResponse(BaseModel):
     winner: str
     players: list[PlayerResult]
     summary: str
+    source: str = "sample-data"
+    status: str = "completed"
+    round_logs: list[RoundLog] = Field(default_factory=list)
 
 
 class StartMatchRequest(BaseModel):
-    game: str
-    players: list[str]
+    game: str = "Survivor"
+    players: list[str] = Field(default_factory=list)
     rounds: int = 3
+    player_urls: list[str] = Field(default_factory=list)
+    use_arena: bool = False
 
 
 class StartMatchResponse(BaseModel):
@@ -52,3 +63,5 @@ class MatchCreateResponse(BaseModel):
     player_count: int
     status: str
     message: str
+    source: str = "local-simulation"
+    result: MatchResultResponse | None = None

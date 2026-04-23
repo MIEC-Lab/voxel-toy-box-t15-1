@@ -1,5 +1,7 @@
+from app.arena_client import ArenaUnavailableError, should_use_arena, start_arena_match
 from app.data import MATCH_RESULTS
-from app.schemas import MatchCreateResponse, MatchResultResponse, PlayerResult, StartMatchRequest
+from app.schemas import MatchCreateResponse, MatchResultResponse, StartMatchRequest
+from app.simulator import build_match_id, normalize_players, run_local_match
 from app.storage import load_match_result, save_match_result
 
 
@@ -10,33 +12,60 @@ def get_match_result_by_id(match_id: str) -> MatchResultResponse | None:
     return result
 
 
-def create_mock_match(payload: StartMatchRequest) -> MatchCreateResponse:
-    match_id = f"mock-{payload.game.lower().replace(' ', '-')}-{len(MATCH_RESULTS) + 1:03d}"
-    winner = payload.players[0] if payload.players else "TBD"
-    players = [
-        PlayerResult(
-            name=player_name,
-            score=max(len(payload.players) - index, 0) * 2,
-            status="alive" if index == 0 else "eliminated",
-        )
-        for index, player_name in enumerate(payload.players)
-    ]
+async def create_match(payload: StartMatchRequest) -> MatchCreateResponse:
+    match_id = build_match_id(payload.game)
+    players = normalize_players(payload)
 
-    MATCH_RESULTS[match_id] = MatchResultResponse(
-        match_id=match_id,
-        game=payload.game,
-        rounds=payload.rounds,
-        winner=winner,
-        players=players,
-        summary="This is a placeholder match result generated for frontend integration.",
-    )
-    save_match_result(MATCH_RESULTS[match_id])
+    if should_use_arena(payload):
+        try:
+            result = await start_arena_match(payload, match_id)
+        except ArenaUnavailableError as exc:
+            result = run_local_match(
+                payload,
+                match_id,
+                source="local-fallback",
+                note=f"Arena was unavailable: {exc}",
+            )
+    else:
+        result = run_local_match(payload, match_id)
+
+    MATCH_RESULTS[match_id] = result
+    save_match_result(result)
 
     return MatchCreateResponse(
         id=match_id,
-        game=payload.game,
-        rounds=payload.rounds,
-        player_count=len(payload.players),
-        status="created",
-        message="Mock match created successfully.",
+        game=result.game,
+        rounds=result.rounds,
+        player_count=len(players),
+        status=result.status,
+        message=_create_message(result),
+        source=result.source,
+        result=result,
     )
+
+
+def create_mock_match(payload: StartMatchRequest) -> MatchCreateResponse:
+    result = run_local_match(payload, build_match_id(payload.game))
+    MATCH_RESULTS[result.match_id] = result
+    save_match_result(result)
+
+    return MatchCreateResponse(
+        id=result.match_id,
+        game=result.game,
+        rounds=result.rounds,
+        player_count=len(result.players),
+        status=result.status,
+        message=_create_message(result),
+        source=result.source,
+        result=result,
+    )
+
+
+def _create_message(result: MatchResultResponse) -> str:
+    if result.status == "running":
+        return "Arena match request was sent. Results are still running."
+    if result.source == "local-fallback":
+        return "Arena was unavailable, so a local simulation result was created."
+    if result.source == "arena":
+        return "Arena match completed successfully."
+    return "Local match simulation completed successfully."

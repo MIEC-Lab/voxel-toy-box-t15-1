@@ -3,11 +3,28 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { getPublicApiBaseUrl } from "@/lib/api";
+import type { MatchCreateResponse } from "@/lib/types";
+
+function buildPlayerNames(playerCount: number) {
+  return Array.from({ length: playerCount }, (_, index) => `Player ${index + 1}`);
+}
+
+function parseAgentUrls(value: string) {
+  return value
+    .split(/[\n,]+/)
+    .map((url) => url.trim())
+    .filter(Boolean);
+}
 
 export default function StartPage() {
   const router = useRouter();
   const [playerCount, setPlayerCount] = useState("6");
   const [maxRounds, setMaxRounds] = useState("10");
+  const [useArena, setUseArena] = useState(false);
+  const [agentUrls, setAgentUrls] = useState(
+    "http://127.0.0.1:9018\nhttp://127.0.0.1:9019"
+  );
   const [status, setStatus] = useState(
     "Fill in the settings and click Start Match."
   );
@@ -30,11 +47,39 @@ export default function StartPage() {
     }
 
     setIsSubmitting(true);
-    setStatus("Starting match...");
+    setStatus("Starting match through the backend...");
 
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      const response = await fetch(`${getPublicApiBaseUrl()}/api/matches`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          game: "Survivor",
+          players: buildPlayerNames(players),
+          rounds,
+          player_urls: parseAgentUrls(agentUrls),
+          use_arena: useArena,
+        }),
+      });
 
-    router.push(`/results?game=Survivor&players=${players}&rounds=${rounds}`);
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || `Backend returned ${response.status}`);
+      }
+
+      const data = (await response.json()) as MatchCreateResponse;
+      setStatus(data.message);
+      router.push(`/results?matchId=${encodeURIComponent(data.id)}`);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to start match.";
+      setStatus(
+        `Could not reach the backend. Start web-backend first, then try again. ${message}`
+      );
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -69,8 +114,8 @@ export default function StartPage() {
             </h1>
 
             <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-300">
-              Fill in the match settings below. This version uses fake loading
-              and then jumps to the results page for demo purposes.
+              Fill in the match settings below. The page now calls the FastAPI
+              backend, creates a match result, and opens the live result view.
             </p>
 
             <div className="mt-8 grid gap-4 sm:grid-cols-2">
@@ -79,7 +124,7 @@ export default function StartPage() {
                   Current Goal
                 </p>
                 <p className="mt-3 text-sm leading-7 text-slate-300">
-                  Show a working form, loading feedback, and page redirect.
+                  Send a real backend request and persist a match result by id.
                 </p>
               </div>
 
@@ -88,7 +133,8 @@ export default function StartPage() {
                   Backend Status
                 </p>
                 <p className="mt-3 text-sm leading-7 text-slate-300">
-                  Real API can be connected later after the frontend flow works.
+                  Uses local simulation by default; can call Arena when agent
+                  URLs are online.
                 </p>
               </div>
             </div>
@@ -136,6 +182,37 @@ export default function StartPage() {
                     onChange={(e) => setMaxRounds(e.target.value)}
                     className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-300"
                   />
+                </div>
+
+                <label className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={useArena}
+                    onChange={(event) => setUseArena(event.target.checked)}
+                    className="mt-1 h-4 w-4 accent-cyan-300"
+                  />
+                  <span>
+                    Use Arena when available
+                    <span className="mt-1 block text-xs leading-5 text-slate-400">
+                      Leave this off for the built-in local Survivor simulation.
+                    </span>
+                  </span>
+                </label>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-200">
+                    Player Agent URLs
+                  </label>
+                  <textarea
+                    value={agentUrls}
+                    onChange={(event) => setAgentUrls(event.target.value)}
+                    rows={3}
+                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-300"
+                  />
+                  <p className="mt-2 text-xs leading-5 text-slate-400">
+                    Only used when Arena mode is enabled. Put one URL per line
+                    or separate URLs with commas.
+                  </p>
                 </div>
 
                 <button

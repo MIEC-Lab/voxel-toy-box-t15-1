@@ -1,5 +1,4 @@
 from app.schemas import MatchResultResponse, PlayerResult
-from app.storage import save_match_result
 
 
 MATCH_RESULTS: dict[str, MatchResultResponse] = {
@@ -16,7 +15,3 @@ MATCH_RESULTS: dict[str, MatchResultResponse] = {
         summary="Alice survives to the end and wins the mock match.",
     )
 }
-
-
-for result in MATCH_RESULTS.values():
-    save_match_result(result)

@@ -109,7 +109,28 @@ class Agent:
         required = request.config.get("required") # list of participants that are compulsory to run in game
         if isinstance(required, list) and len(required) == 0:
             required = None
-        game_list = list(game_registry.keys()) # list of available games
+        requested_games = request.config.get("games") or request.config.get("game")
+        if isinstance(requested_games, str):
+            requested_games = [requested_games]
+        if isinstance(requested_games, list) and requested_games:
+            game_list = [game for game in requested_games if game in game_registry]
+            if not game_list:
+                await updater.reject(new_agent_text_message(f"Unsupported games: {requested_games}"))
+                return
+        else:
+            game_list = list(game_registry.keys()) # list of available games
+
+        requested_scenarios = request.config.get("scenarios") or request.config.get("scenario")
+        if isinstance(requested_scenarios, int):
+            scenario_list = [requested_scenarios]
+        elif isinstance(requested_scenarios, list) and requested_scenarios:
+            scenario_list = [scenario for scenario in requested_scenarios if scenario in [1, 2]]
+        else:
+            scenario_list = [1, 2]
+        if not scenario_list:
+            await updater.reject(new_agent_text_message(f"Unsupported scenarios: {requested_scenarios}"))
+            return
+
         compositions = []
         # all combinations of players until max size, default to max of 5
         max_size = request.config.get("max_size", 5)
@@ -124,7 +145,7 @@ class Agent:
         runs = []
         for c in compositions:
             for g in game_list:
-                for s in [1, 2]:
+                for s in scenario_list:
                     runs.append({"composition": c, "game": g, "scenario": s})
 
         # limit by max runs
@@ -147,7 +168,7 @@ class Agent:
                          "Game": game,
                          "Scenario": scenario,
                          "Players": [{"Name": x["Name"], "Role": "AI", "Model": x["Agent"], "Mute": False, "Exploration": False} for x in self.players],
-                         "Max_num_turns": max_turns[game]}
+                         "Max_num_turns": request.config.get("max_turns", max_turns[game])}
             # ---------------------------
             # send task for orchestration
             log = await self.orchestrate_game(updater)

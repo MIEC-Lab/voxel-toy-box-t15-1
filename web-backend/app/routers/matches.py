@@ -1,15 +1,15 @@
 from fastapi import APIRouter, HTTPException
 
 from app.schemas import MatchCreateResponse, MatchResultResponse, StartMatchRequest
-from app.services import create_mock_match, get_match_result_by_id
+from app.services import create_match as create_match_service, get_match_result_by_id
 
 
 router = APIRouter(prefix="/api/matches", tags=["matches"])
 
 
 @router.post("", response_model=MatchCreateResponse)
-def create_match(payload: StartMatchRequest) -> MatchCreateResponse:
-    return create_mock_match(payload)
+async def create_match(payload: StartMatchRequest) -> MatchCreateResponse:
+    return await create_match_service(payload)
 
 
 @router.get("/{match_id}", response_model=MatchResultResponse)

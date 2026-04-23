@@ -6,7 +6,7 @@ from app.schemas import (
     MatchCreateResponse,
     StartMatchRequest,
 )
-from app.services import create_mock_match, get_match_result_by_id
+from app.services import create_match, get_match_result_by_id
 from app.storage import list_saved_match_ids
 
 
@@ -40,5 +40,5 @@ def get_match_result(match_id: str) -> MatchResultResponse:
 
 
 @router.post("/start", response_model=MatchCreateResponse)
-def start_match(payload: StartMatchRequest) -> MatchCreateResponse:
-    return create_mock_match(payload)
+async def start_match(payload: StartMatchRequest) -> MatchCreateResponse:
+    return await create_match(payload)
