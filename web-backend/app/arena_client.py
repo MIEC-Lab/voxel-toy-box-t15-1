@@ -14,6 +14,9 @@ class ArenaUnavailableError(RuntimeError):
     """Raised when the external Arena stack is not ready for a real match."""
 
 
+BACKGROUND_ARENA_TASKS: set[asyncio.Task[None]] = set()
+
+
 def should_use_arena(payload: StartMatchRequest) -> bool:
     env_value = os.getenv("SOCIALCOMPACT_USE_ARENA", "").lower()
     return payload.use_arena or env_value in {"1", "true", "yes", "on"}
@@ -34,15 +37,21 @@ async def start_arena_match_background(
 ) -> MatchResultResponse:
     arena_url, participants = await _prepare_arena_request(payload)
     pending = _pending_arena_result(payload, match_id, participants)
+    print(f"[arena] accepted {match_id}; listening for stream artifacts")
 
     async def runner() -> None:
         try:
             result = await _run_arena_stream(payload, match_id, arena_url, participants)
         except Exception as exc:
+            print(f"[arena] {match_id} failed: {exc}")
             result = _failed_arena_result(payload, match_id, participants, str(exc))
+        else:
+            print(f"[arena] {match_id} finished with status={result.status}")
         update_result(result)
 
-    asyncio.create_task(runner())
+    task = asyncio.create_task(runner())
+    BACKGROUND_ARENA_TASKS.add(task)
+    task.add_done_callback(BACKGROUND_ARENA_TASKS.discard)
     return pending
 
 
@@ -116,6 +125,7 @@ async def _run_arena_stream(
             http_kwargs={"timeout": None},
         ):
             latest_data = response.model_dump(mode="json", exclude_none=True)
+            print(f"[arena] {match_id} stream event received")
             result = _convert_arena_response(payload, match_id, latest_data)
             if result is not None and result.status == "completed":
                 return result
