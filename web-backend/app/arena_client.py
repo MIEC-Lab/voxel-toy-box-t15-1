@@ -1,7 +1,9 @@
 import json
 import os
+import asyncio
 from typing import Any
 from uuid import uuid4
+from collections.abc import Callable
 from urllib.parse import urljoin
 
 from app.schemas import MatchResultResponse, PlayerResult, RoundLog, StartMatchRequest
@@ -21,6 +23,32 @@ async def start_arena_match(
     payload: StartMatchRequest,
     match_id: str,
 ) -> MatchResultResponse:
+    arena_url, participants = await _prepare_arena_request(payload)
+    return await _run_arena_stream(payload, match_id, arena_url, participants)
+
+
+async def start_arena_match_background(
+    payload: StartMatchRequest,
+    match_id: str,
+    update_result: Callable[[MatchResultResponse], None],
+) -> MatchResultResponse:
+    arena_url, participants = await _prepare_arena_request(payload)
+    pending = _pending_arena_result(payload, match_id, participants)
+
+    async def runner() -> None:
+        try:
+            result = await _run_arena_stream(payload, match_id, arena_url, participants)
+        except Exception as exc:
+            result = _failed_arena_result(payload, match_id, participants, str(exc))
+        update_result(result)
+
+    asyncio.create_task(runner())
+    return pending
+
+
+async def _prepare_arena_request(
+    payload: StartMatchRequest,
+) -> tuple[str, dict[str, str]]:
     arena_url = os.getenv("SOCIALCOMPACT_ARENA_URL", "http://127.0.0.1:9009")
     player_urls = _configured_player_urls(payload)
     players = normalize_players(payload)
@@ -39,11 +67,19 @@ async def start_arena_match(
     for name, url in participants.items():
         await _check_agent_card(name, url)
 
+    return arena_url, participants
+
+
+async def _run_arena_stream(
+    payload: StartMatchRequest,
+    match_id: str,
+    arena_url: str,
+    participants: dict[str, str],
+) -> MatchResultResponse:
     try:
         import httpx
         from a2a.client import A2AClient
-        from a2a.client.errors import A2AClientTimeoutError
-        from a2a.types import MessageSendParams, SendMessageRequest
+        from a2a.types import MessageSendParams, SendStreamingMessageRequest
     except ImportError as exc:
         raise ArenaUnavailableError(
             "Install a2a-sdk and httpx to enable Arena mode."
@@ -67,22 +103,24 @@ async def start_arena_match(
             "messageId": uuid4().hex,
         }
     }
-    request = SendMessageRequest(
+    request = SendStreamingMessageRequest(
         id=str(uuid4()),
         params=MessageSendParams(**send_message_payload),
     )
 
-    try:
-        async with httpx.AsyncClient(timeout=20) as httpx_client:
-            a2a_client = A2AClient(httpx_client=httpx_client, url=arena_url)
-            response = await a2a_client.send_message(request)
-    except A2AClientTimeoutError:
-        return _pending_arena_result(payload, match_id, participants)
-    except Exception as exc:
-        raise ArenaUnavailableError(f"Arena request failed: {exc}") from exc
+    latest_data: dict[str, Any] | None = None
+    async with httpx.AsyncClient(timeout=None) as httpx_client:
+        a2a_client = A2AClient(httpx_client=httpx_client, url=arena_url)
+        async for response in a2a_client.send_message_streaming(
+            request,
+            http_kwargs={"timeout": None},
+        ):
+            latest_data = response.model_dump(mode="json", exclude_none=True)
+            result = _convert_arena_response(payload, match_id, latest_data)
+            if result is not None and result.status == "completed":
+                return result
 
-    response_data = response.model_dump(mode="json", exclude_none=True)
-    result = _convert_arena_response(payload, match_id, response_data)
+    result = _convert_arena_response(payload, match_id, latest_data or {})
     if result is not None:
         return result
     return _pending_arena_result(payload, match_id, participants)
@@ -128,6 +166,29 @@ def _pending_arena_result(
         summary="Arena accepted the match request, but final artifacts were not returned synchronously.",
         source="arena",
         status="running",
+        round_logs=[],
+    )
+
+
+def _failed_arena_result(
+    payload: StartMatchRequest,
+    match_id: str,
+    participants: dict[str, str],
+    detail: str,
+) -> MatchResultResponse:
+    players = [
+        PlayerResult(name=name, score=0, status="failed")
+        for name in participants.keys()
+    ]
+    return MatchResultResponse(
+        match_id=match_id,
+        game=payload.game,
+        rounds=0,
+        winner="Unavailable",
+        players=players,
+        summary=f"Arena match did not complete: {detail}",
+        source="arena",
+        status="failed",
         round_logs=[],
     )
 

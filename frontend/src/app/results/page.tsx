@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getServerApiBaseUrl } from "@/lib/api";
 import type { MatchResult } from "@/lib/types";
+import { ResultsAutoRefresh } from "./results-auto-refresh";
 
 export const dynamic = "force-dynamic";
 
@@ -82,9 +83,11 @@ export default async function ResultsPage({ searchParams }: ResultsPageProps) {
   const sortedPlayers = [...result.players].sort(
     (a, b) => b.score - a.score || a.name.localeCompare(b.name)
   );
+  const isRunning = result.status === "running";
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_right,_rgba(34,211,238,0.16),_transparent_30%),linear-gradient(135deg,_#020617,_#0f172a_45%,_#111827)] text-white">
+      <ResultsAutoRefresh enabled={isRunning} />
       <section className="mx-auto max-w-6xl px-6 py-10 sm:px-8">
         <div className="flex flex-col gap-4 rounded-[32px] border border-white/10 bg-white/6 p-6 backdrop-blur sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -95,6 +98,11 @@ export default async function ResultsPage({ searchParams }: ResultsPageProps) {
             <p className="mt-3 max-w-3xl leading-7 text-slate-300">
               {result.summary}
             </p>
+            {isRunning ? (
+              <p className="mt-3 text-sm font-semibold text-cyan-200">
+                Waiting for Arena artifacts. This page refreshes every 3 seconds.
+              </p>
+            ) : null}
           </div>
 
           <Link

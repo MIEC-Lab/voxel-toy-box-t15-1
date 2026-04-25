@@ -1,4 +1,8 @@
-from app.arena_client import ArenaUnavailableError, should_use_arena, start_arena_match
+from app.arena_client import (
+    ArenaUnavailableError,
+    should_use_arena,
+    start_arena_match_background,
+)
 from app.data import MATCH_RESULTS
 from app.schemas import MatchCreateResponse, MatchResultResponse, StartMatchRequest
 from app.simulator import build_match_id, normalize_players, run_local_match
@@ -18,7 +22,11 @@ async def create_match(payload: StartMatchRequest) -> MatchCreateResponse:
 
     if should_use_arena(payload):
         try:
-            result = await start_arena_match(payload, match_id)
+            result = await start_arena_match_background(
+                payload,
+                match_id,
+                _store_match_result,
+            )
         except ArenaUnavailableError as exc:
             result = run_local_match(
                 payload,
@@ -29,8 +37,7 @@ async def create_match(payload: StartMatchRequest) -> MatchCreateResponse:
     else:
         result = run_local_match(payload, match_id)
 
-    MATCH_RESULTS[match_id] = result
-    save_match_result(result)
+    _store_match_result(result)
 
     return MatchCreateResponse(
         id=match_id,
@@ -46,8 +53,7 @@ async def create_match(payload: StartMatchRequest) -> MatchCreateResponse:
 
 def create_mock_match(payload: StartMatchRequest) -> MatchCreateResponse:
     result = run_local_match(payload, build_match_id(payload.game))
-    MATCH_RESULTS[result.match_id] = result
-    save_match_result(result)
+    _store_match_result(result)
 
     return MatchCreateResponse(
         id=result.match_id,
@@ -59,6 +65,11 @@ def create_mock_match(payload: StartMatchRequest) -> MatchCreateResponse:
         source=result.source,
         result=result,
     )
+
+
+def _store_match_result(result: MatchResultResponse) -> None:
+    MATCH_RESULTS[result.match_id] = result
+    save_match_result(result)
 
 
 def _create_message(result: MatchResultResponse) -> str:
