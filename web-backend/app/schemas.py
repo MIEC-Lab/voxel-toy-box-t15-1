@@ -54,6 +54,8 @@ class DataSourceResponse(BaseModel):
 
 class HealthResponse(BaseModel):
     status: str
+    service: str = "web-backend"
+    version: str = "0.1.0"
 
 
 class MatchCreateResponse(BaseModel):
