@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { getServerApiBaseUrl } from "@/lib/api";
 import type { MatchResult } from "@/lib/types";
+import type { RoundDetailData, RoundEventType } from "@/components/round-detail";
+import { RoundTimeline } from "@/components/round-timeline";
 import { ResultsAutoRefresh } from "./results-auto-refresh";
 
 export const dynamic = "force-dynamic";
@@ -50,6 +52,76 @@ function badgeTone(source: string) {
   return "border-cyan-300/30 bg-cyan-300/10 text-cyan-100";
 }
 
+function classifyRoundEvent(event: string): RoundEventType {
+  const lowerEvent = event.toLowerCase();
+
+  if (
+    lowerEvent.includes("eliminated") ||
+    lowerEvent.includes("removed") ||
+    lowerEvent.includes("out") ||
+    lowerEvent.includes("\u6dd8\u6c70")
+  ) {
+    return "elimination";
+  }
+
+  if (
+    lowerEvent.includes("voted") ||
+    lowerEvent.includes("vote") ||
+    lowerEvent.includes("\u6295\u7968")
+  ) {
+    return "vote";
+  }
+
+  if (
+    lowerEvent.includes("remaining") ||
+    lowerEvent.includes("survive") ||
+    lowerEvent.includes("status") ||
+    lowerEvent.includes("score") ||
+    lowerEvent.includes("\u5269\u4f59")
+  ) {
+    return "status";
+  }
+
+  return "event";
+}
+
+function convertRoundLogsToDetails(
+  roundLogs: MatchResult["round_logs"]
+): RoundDetailData[] {
+  return roundLogs.map((round) => ({
+    id: round.round,
+    events: round.events.map((event) => ({
+      text: event,
+      type: classifyRoundEvent(event),
+    })),
+    remainingPlayers: round.remaining_players,
+    chats: [],
+    predictions: [],
+    actions: round.events
+      .filter((event) => {
+        const eventType = classifyRoundEvent(event);
+        return eventType === "elimination" || eventType === "vote";
+      })
+      .map((event) => ({
+        player: `Round ${round.round}`,
+        action: event,
+      })),
+    observations: [
+      ...round.events.map((event, index) => ({
+        label: `Event ${index + 1}`,
+        value: event,
+      })),
+      {
+        label: "Remaining Players",
+        value:
+          round.remaining_players.length > 0
+            ? round.remaining_players.join(", ")
+            : "No remaining players recorded.",
+      },
+    ],
+  }));
+}
+
 export default async function ResultsPage({ searchParams }: ResultsPageProps) {
   const params = (await searchParams) ?? {};
   const matchId = getSingleValue(params.matchId, "mock-match-001");
@@ -84,6 +156,7 @@ export default async function ResultsPage({ searchParams }: ResultsPageProps) {
     (a, b) => b.score - a.score || a.name.localeCompare(b.name)
   );
   const isRunning = result.status === "running";
+  const roundDetails = convertRoundLogsToDetails(result.round_logs);
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_right,_rgba(34,211,238,0.16),_transparent_30%),linear-gradient(135deg,_#020617,_#0f172a_45%,_#111827)] text-white">
@@ -162,44 +235,7 @@ export default async function ResultsPage({ searchParams }: ResultsPageProps) {
             </div>
           </section>
 
-          <section className="rounded-[32px] border border-white/10 bg-white/6 p-6 backdrop-blur">
-            <h2 className="text-2xl font-bold">Round Timeline</h2>
-            {result.round_logs.length === 0 ? (
-              <p className="mt-5 rounded-2xl border border-white/10 bg-slate-950/45 p-4 text-sm leading-7 text-slate-300">
-                This result does not include detailed round logs yet.
-              </p>
-            ) : (
-              <div className="mt-5 space-y-4">
-                {result.round_logs.map((round) => (
-                  <article
-                    key={round.round}
-                    className="rounded-3xl border border-white/10 bg-slate-950/45 p-5"
-                  >
-                    <div className="flex items-center justify-between gap-4">
-                      <h3 className="text-lg font-semibold">
-                        Round {round.round}
-                      </h3>
-                      <p className="text-sm text-slate-400">
-                        {round.remaining_players.length} remaining
-                      </p>
-                    </div>
-                    <ul className="mt-4 space-y-2 text-sm leading-6 text-slate-300">
-                      {round.events.map((event) => (
-                        <li key={event} className="rounded-xl bg-white/5 px-3 py-2">
-                          {event}
-                        </li>
-                      ))}
-                    </ul>
-                    {round.remaining_players.length > 0 ? (
-                      <p className="mt-4 text-xs uppercase tracking-[0.2em] text-cyan-300">
-                        Remaining: {round.remaining_players.join(", ")}
-                      </p>
-                    ) : null}
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
+          <RoundTimeline rounds={roundDetails} />
         </div>
       </section>
     </main>
