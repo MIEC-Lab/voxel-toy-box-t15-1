@@ -1,4 +1,7 @@
-import type { RoundDetailData, RoundEventType } from "./round-detail";
+"use client";
+
+import { useState } from "react";
+import type { RoundDetailData, RoundEvent, RoundEventType } from "./round-detail";
 
 const demoRounds: RoundDetailData[] = [
   {
@@ -198,8 +201,44 @@ function eventTone(type: RoundEventType) {
   };
 }
 
+function playerColorClass(index: number) {
+  const colors = [
+    "border-cyan-300/30 bg-cyan-300/15 text-cyan-100",
+    "border-emerald-300/30 bg-emerald-300/15 text-emerald-100",
+    "border-violet-300/30 bg-violet-300/15 text-violet-100",
+    "border-amber-300/30 bg-amber-300/15 text-amber-100",
+    "border-rose-300/30 bg-rose-300/15 text-rose-100",
+  ];
+
+  return colors[index % colors.length];
+}
+
+function getPlayerInitial(player: string) {
+  return player.trim().slice(0, 1).toUpperCase() || "?";
+}
+
+function getKeyEvent(events: RoundEvent[]) {
+  return (
+    events.find((event) => event.type === "elimination") ??
+    events.find((event) => event.type === "vote") ??
+    events.find((event) => event.type === "status") ??
+    events[0]
+  );
+}
+
 export function RoundTimeline({ rounds }: RoundTimelineProps) {
   const visibleRounds = rounds ?? demoRounds;
+  const [openRoundIds, setOpenRoundIds] = useState<number[]>(
+    visibleRounds.map((round) => round.id)
+  );
+
+  function toggleRound(roundId: number) {
+    setOpenRoundIds((currentIds) =>
+      currentIds.includes(roundId)
+        ? currentIds.filter((id) => id !== roundId)
+        : [...currentIds, roundId]
+    );
+  }
 
   if (visibleRounds.length === 0) {
     return (
@@ -234,80 +273,129 @@ export function RoundTimeline({ rounds }: RoundTimelineProps) {
         </p>
       </div>
 
-      <div className="mt-6 space-y-4">
+      <div className="mt-6 space-y-5">
         {visibleRounds.map((round) => {
           const remainingPlayers = round.remainingPlayers ?? [];
           const events = round.events ?? [];
+          const keyEvent = getKeyEvent(events);
+          const isOpen = openRoundIds.includes(round.id);
 
           return (
-            <article
-              key={round.id}
-              className="rounded-3xl border border-white/10 bg-slate-950/45 p-5"
-            >
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-300">
-                    Round {round.id}
-                  </p>
-                  <h3 className="mt-2 text-xl font-bold text-white">
-                    Events
-                  </h3>
-                </div>
-
-                <div className="rounded-2xl border border-emerald-300/25 bg-emerald-300/10 px-4 py-3 text-right">
-                  <p className="text-2xl font-bold text-emerald-100">
-                    {remainingPlayers.length}
-                  </p>
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-200/80">
-                    Remaining
-                  </p>
-                </div>
+            <div key={round.id} className="relative pl-8">
+              <div className="absolute left-3 top-0 h-full w-px bg-cyan-300/20" />
+              <div className="absolute left-0 top-7 flex h-6 w-6 items-center justify-center rounded-full border border-cyan-300/40 bg-slate-950 text-xs font-bold text-cyan-100">
+                {round.id}
               </div>
 
-              {events.length === 0 ? (
-                <p className="mt-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-400">
-                  No events recorded for this round.
-                </p>
-              ) : (
-                <ol className="mt-4 space-y-3">
-                  {events.map((event, index) => {
-                    const tone = eventTone(event.type);
+              <article className="rounded-3xl border border-white/10 bg-slate-950/45 p-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-300">
+                      Round {round.id}
+                    </p>
+                    <h3 className="mt-2 text-xl font-bold text-white">
+                      Events
+                    </h3>
+                  </div>
 
-                    return (
-                      <li
-                        key={`${round.id}-${index}-${event.text}`}
-                        className={`rounded-2xl border px-4 py-3 ${tone.className}`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <span
-                            className={`mt-2 h-2.5 w-2.5 shrink-0 rounded-full ${tone.dotClassName}`}
-                          />
-                          <div>
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] opacity-80">
-                              {tone.label}
-                            </p>
-                            <p className="mt-1 text-sm leading-6">
-                              {event.text}
-                            </p>
-                          </div>
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-2xl border border-emerald-300/25 bg-emerald-300/10 px-4 py-3 text-right">
+                      <p className="text-2xl font-bold text-emerald-100">
+                        {remainingPlayers.length}
+                      </p>
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-200/80">
+                        Remaining
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => toggleRound(round.id)}
+                      className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:border-cyan-300/40 hover:bg-cyan-300/10 hover:text-cyan-100"
+                    >
+                      {isOpen ? "Collapse" : "Expand"}
+                    </button>
+                  </div>
+                </div>
+
+                {keyEvent ? (
+                  <div className="mt-4 rounded-2xl border border-cyan-300/25 bg-cyan-300/10 px-4 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200">
+                      Key Event
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-slate-100">
+                      {keyEvent.text}
+                    </p>
+                  </div>
+                ) : null}
+
+                {isOpen ? (
+                  <>
+                    {events.length === 0 ? (
+                      <p className="mt-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-400">
+                        No events recorded for this round.
+                      </p>
+                    ) : (
+                      <ol className="mt-4 space-y-3">
+                        {events.map((event, index) => {
+                          const tone = eventTone(event.type);
+
+                          return (
+                            <li
+                              key={`${round.id}-${index}-${event.text}`}
+                              className={`rounded-2xl border px-4 py-3 ${tone.className}`}
+                            >
+                              <div className="flex items-start gap-3">
+                                <span
+                                  className={`mt-2 h-2.5 w-2.5 shrink-0 rounded-full ${tone.dotClassName}`}
+                                />
+                                <div>
+                                  <p className="text-xs font-semibold uppercase tracking-[0.18em] opacity-80">
+                                    {tone.label}
+                                  </p>
+                                  <p className="mt-1 text-sm leading-6">
+                                    {event.text}
+                                  </p>
+                                </div>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ol>
+                    )}
+
+                    <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                        Remaining Players
+                      </p>
+                      {remainingPlayers.length > 0 ? (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {remainingPlayers.map((player, index) => (
+                            <span
+                              key={`${round.id}-${player}`}
+                              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-slate-950/35 py-1 pl-1 pr-3 text-sm text-slate-200"
+                            >
+                              <span
+                                className={`flex h-7 w-7 items-center justify-center rounded-full border text-xs font-bold ${playerColorClass(
+                                  index
+                                )}`}
+                              >
+                                {getPlayerInitial(player)}
+                              </span>
+                              {player}
+                            </span>
+                          ))}
                         </div>
-                      </li>
-                    );
-                  })}
-                </ol>
-              )}
-
-              <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                  Remaining Players
-                </p>
-                <p className="mt-2 text-sm leading-6 text-slate-200">
-                  {remainingPlayers.length > 0
-                    ? remainingPlayers.join(", ")
-                    : "No remaining players recorded."}
-                </p>
-              </div>
-            </article>
+                      ) : (
+                        <p className="mt-2 text-sm leading-6 text-slate-400">
+                          No remaining players recorded.
+                        </p>
+                      )}
+                    </div>
+                  </>
+                ) : null}
+              </article>
+            </div>
           );
         })}
       </div>
