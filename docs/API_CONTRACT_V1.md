@@ -44,7 +44,7 @@ GET /api/results/source/files
 {
   "status": "ok",
   "service": "web-backend",
-  "version": "0.1.0"
+  "version": "1.0.0"
 }
 ```
 
@@ -52,7 +52,7 @@ GET /api/results/source/files
 
 - `status`：后端健康状态，目前固定为 `ok`
 - `service`：服务名称，目前固定为 `web-backend`
-- `version`：后端版本号，当前为 `0.1.0`
+- `version`：后端版本号，当前为 `1.0.0`
 
 ## 4. POST /api/matches
 

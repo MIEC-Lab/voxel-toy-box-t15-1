@@ -6,11 +6,12 @@ from app.routers.matches import router as matches_router
 from app.routers.results import router as results_router
 from app.schemas import HealthResponse
 
+API_VERSION = "1.0.0"
 
 app = FastAPI(
     title="SocialCOMPACT Web Backend",
     description="Minimal backend API for the SocialCOMPACT web frontend.",
-    version="0.1.0",
+    version=API_VERSION,
 )
 
 app.add_middleware(
@@ -29,12 +30,12 @@ def root() -> dict[str, str]:
 
 @app.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
-    return HealthResponse(status="ok")
+    return HealthResponse(status="ok", service="web-backend", version=API_VERSION)
 
 
 @app.get("/api/health", response_model=HealthResponse)
 def api_health() -> HealthResponse:
-    return HealthResponse(status="ok")
+    return HealthResponse(status="ok", service="web-backend", version=API_VERSION)
 
 
 app.include_router(games_router)
