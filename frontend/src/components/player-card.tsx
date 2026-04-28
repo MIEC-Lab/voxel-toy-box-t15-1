@@ -42,33 +42,31 @@ export function PlayerCard({ player }: PlayerCardProps) {
       <div className="absolute right-0 top-0 h-28 w-28 rounded-full bg-white/8 blur-2xl" />
 
       {player.eliminated ? (
-        <div className="absolute -right-10 top-7 rotate-12 rounded-full border border-rose-200/20 bg-rose-300/10 px-10 py-2 text-xs font-bold uppercase tracking-[0.34em] text-rose-100/90">
+        <div className="pointer-events-none absolute right-5 top-14 rotate-12 rounded-full border border-rose-200/20 bg-rose-300/10 px-7 py-2 text-[0.68rem] font-bold uppercase tracking-[0.28em] text-rose-100/80 sm:right-7">
           Out
         </div>
       ) : null}
 
       <div className="relative">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <span className="rounded-full border border-white/10 bg-white/6 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-slate-200">
-              Rank {String(player.rank).padStart(2, "0")}
-            </span>
-            <h3 className="mt-4 text-2xl font-black text-white sm:text-3xl">
-              {player.name}
-            </h3>
-            <p className="mt-3 max-w-sm text-sm leading-7 text-slate-200/82">
-              {player.insight}
-            </p>
-          </div>
-
+        <div className="flex flex-wrap items-center gap-3 pr-12">
+          <span className="whitespace-nowrap rounded-full border border-white/10 bg-white/6 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-slate-200">
+            Rank {String(player.rank).padStart(2, "0")}
+          </span>
           <span
-            className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] ${tone.badge}`}
+            className={`whitespace-nowrap rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] ${tone.badge}`}
           >
             {player.statusLabel}
           </span>
         </div>
 
-        <div className="mt-6 flex items-end justify-between gap-4">
+        <h3 className="mt-4 text-2xl font-black text-white sm:text-3xl">
+          {player.name}
+        </h3>
+        <p className="mt-3 max-w-sm text-sm leading-7 text-slate-200/82">
+          {player.insight}
+        </p>
+
+        <div className="mt-6 grid gap-4 sm:grid-cols-[minmax(0,0.72fr)_minmax(0,1fr)] sm:items-end">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-300">
               Score
@@ -78,7 +76,7 @@ export function PlayerCard({ player }: PlayerCardProps) {
             </p>
           </div>
 
-          <div className="text-right text-sm leading-7 text-slate-200/78">
+          <div className="text-sm leading-7 text-slate-200/78 sm:text-right">
             <p>Damage dealt: {player.damageDealt}</p>
             <p>Damage taken: {player.damageTaken}</p>
           </div>
@@ -99,7 +97,7 @@ export function PlayerCard({ player }: PlayerCardProps) {
           />
         </div>
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-4">
+        <div className="mt-6 grid grid-cols-2 gap-3 2xl:grid-cols-4">
           <StatTile label="Life" value={`${player.hp}/${player.maxHp}`} />
           <StatTile label="Ammo" value={`${player.ammo}/${player.maxAmmo}`} />
           <StatTile label="Shots" value={String(player.shotsFired)} />
@@ -145,8 +143,8 @@ function Meter({
 
 function StatTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/6 px-4 py-3">
-      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
+    <div className="min-w-0 rounded-2xl border border-white/10 bg-white/6 px-4 py-3">
+      <p className="truncate text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-slate-300 sm:text-xs">
         {label}
       </p>
       <p className="mt-2 text-xl font-black text-white">{value}</p>
