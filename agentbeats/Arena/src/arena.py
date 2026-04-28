@@ -232,7 +232,33 @@ class Agent:
                                                url=player["Url"], new_conversation=True)
         return
 
-    async def facilitate_chat(self, max_rounds: int = 3) -> None:
+    async def emit_live_event(
+        self,
+        updater: TaskUpdater,
+        phase: str,
+        message: str,
+        round_number: int = 0,
+        actor: str | None = None,
+        target: str | None = None,
+    ) -> None:
+        """Send a small live event artifact so the web UI can poll game progress."""
+        await updater.add_artifact(
+            parts=[
+                Part(root=DataPart(data={
+                    "LiveEvent": {
+                        "Round": round_number,
+                        "Phase": phase,
+                        "Actor": actor,
+                        "Target": target,
+                        "Message": str(message),
+                        "Timestamp": datetime.now().isoformat(),
+                    }
+                }))
+            ],
+            name=f"Game{self.task.get('Id', 0)}-{phase}-{round_number}-{int(time.time() * 1000)}",
+        )
+
+    async def facilitate_chat(self, updater: TaskUpdater, round_number: int, max_rounds: int = 3) -> None:
         """Helper method to get and send messages between players in a centralized fashion"""
         # construct a conversation
         player_key = {x["Name"]: x["Url"] for x in self.players if x["Name"] not in self.env.eliminated}
@@ -261,6 +287,7 @@ class Agent:
                 # update chat
                 msg = {"from": first, "to": second, "message": response}
                 self.chats[(first, second)].append(msg)
+                await self.emit_live_event(updater, "chat", response, round_number, first, second)
                 # send message and get response
                 prompt = f"In your chat with {first}, you received the message: " + str(msg["message"])
                 prompt += f"\nGive your response to {first}."
@@ -271,9 +298,10 @@ class Agent:
                 # parse message
                 response = response.split("<message>")[-1].split("</message>")[0]
                 self.chats[(first, second)].append({"from": second, "to": first, "message": response})
+                await self.emit_live_event(updater, "chat", response, round_number, second, first)
         return
 
-    async def get_predictions(self):
+    async def get_predictions(self, updater: TaskUpdater, round_number: int):
         # base prompt
         base_prompt = ("Enclose your main reasons within the <reasoning> </reasoning> tags." +
                   "\nThen make your prediction and enclose it within the <prediction> </prediction> tags, " +
@@ -311,9 +339,18 @@ class Agent:
                                 except Exception:
                                     pass
                     self.predictions[player["Name"]][other["Name"]] = {"reasoning": reasoning, "prediction": prediction}
+                    await self.emit_live_event(updater, "reasoning", reasoning, round_number, player["Name"], other["Name"])
+                    await self.emit_live_event(
+                        updater,
+                        "prediction",
+                        json.dumps(prediction, ensure_ascii=False),
+                        round_number,
+                        player["Name"],
+                        other["Name"],
+                    )
         return
 
-    async def get_actions(self):
+    async def get_actions(self, updater: TaskUpdater, round_number: int):
         prompt = (self.env.action_format()["description"] +
                     "Enclose your main reasons within the <reasoning> </reasoning> tags." +
                     "\nThen make your decision and enclose it within the <decision> </decision> tags, " +
@@ -381,13 +418,28 @@ class Agent:
                 decision = self.env.null_action()
                 reasoning = "error"
             self.actions[player["Name"]] = {"reasoning": reasoning, "action": decision}
+            await self.emit_live_event(updater, "reasoning", reasoning, round_number, player["Name"])
+            await self.emit_live_event(
+                updater,
+                "decision",
+                json.dumps(decision, ensure_ascii=False),
+                round_number,
+                player["Name"],
+            )
         return
 
-    async def send_observations(self):
+    async def send_observations(self, updater: TaskUpdater, round_number: int):
         for player in [x for x in self.players if x["Name"] not in self.env.eliminated]:
             prompt = "Your next observations: " + str(self.observations[player["Name"]])
             prompt += "\nYour next state: " + json.dumps(self.states[player["Name"]])
             prompt += "\nYour current score: " + json.dumps(self.env.scores[player["Name"]])
+            await self.emit_live_event(
+                updater,
+                "observation",
+                self.observations[player["Name"]],
+                round_number,
+                player["Name"],
+            )
             await self.messenger.talk_to_agent(message=str(json.dumps({"task": "observe", "message": prompt, "info": self.states[player["Name"]]})),
                                                url=player["Url"])
         return
@@ -466,19 +518,20 @@ class Agent:
         round = 1
         # iterate until game ends
         while not self.env.is_game_over():
+            await self.emit_live_event(updater, "system", f"Round {round} started.", round)
             # facilitate chat
-            await self.facilitate_chat()
+            await self.facilitate_chat(updater, round)
             # get predictions
-            await self.get_predictions()
+            await self.get_predictions(updater, round)
             # get actions
-            await self.get_actions()
+            await self.get_actions(updater, round)
             # process decisions
             self.observations, self.states = self.env.process_actions({x: self.actions[x]["action"] for x in list(self.actions.keys())})
             # calculate prediction accuracies
             await self.calculate_pred_accuracy()
             # update agents with observations from game
             if not self.env.is_game_over():
-                await self.send_observations()
+                await self.send_observations(updater, round)
             else:
                 self.states = "Game Over"
             # log the round
@@ -501,6 +554,7 @@ class Agent:
             await updater.update_status(
                 TaskState.working, new_agent_text_message(f"Finished round: {round}")
             )
+            await self.emit_live_event(updater, "system", f"Round {round} finished.", round)
             round += 1
 
         # log final scores in game

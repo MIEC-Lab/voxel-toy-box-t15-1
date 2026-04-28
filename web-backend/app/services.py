@@ -110,6 +110,19 @@ def append_match_log(
     actor: str | None = None,
     target: str | None = None,
 ) -> GameLogEvent:
+    logs = MATCH_LOGS.setdefault(match_id, [])
+    key = (phase, round_number, actor, target, message)
+    for existing in logs:
+        existing_key = (
+            existing.phase,
+            existing.round,
+            existing.actor,
+            existing.target,
+            existing.message,
+        )
+        if existing_key == key:
+            return existing
+
     event = GameLogEvent(
         id=f"{match_id}-{uuid4().hex[:10]}",
         match_id=match_id,
@@ -120,8 +133,8 @@ def append_match_log(
         message=message,
         timestamp=datetime.now(UTC).isoformat(),
     )
-    MATCH_LOGS.setdefault(match_id, []).append(event)
-    save_match_logs(match_id, MATCH_LOGS[match_id])
+    logs.append(event)
+    save_match_logs(match_id, logs)
     return event
 
 

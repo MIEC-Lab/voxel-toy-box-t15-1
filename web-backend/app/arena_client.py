@@ -169,14 +169,26 @@ async def _run_arena_stream(
         ):
             latest_data = response.model_dump(mode="json", exclude_none=True)
             print(f"[arena] {match_id} stream event received")
-            if append_log is not None:
-                append_log(match_id, "system", "Arena stream event received.", 0, None, None)
 
             game_log = _find_game_log(latest_data)
             if game_log is not None and replace_logs is not None:
                 replace_logs(match_id, _convert_game_log_to_events(match_id, game_log))
 
-            for live_round in _find_live_round_logs(latest_data):
+            live_events = _find_live_events(latest_data)
+            for live_event in live_events:
+                if append_log is not None:
+                    event = _convert_live_event_to_event(match_id, live_event)
+                    append_log(
+                        event.match_id,
+                        event.phase,
+                        event.message,
+                        event.round,
+                        event.actor,
+                        event.target,
+                    )
+
+            live_rounds = _find_live_round_logs(latest_data)
+            for live_round in live_rounds:
                 if append_log is not None:
                     for event in _convert_live_round_to_events(match_id, live_round):
                         append_log(
@@ -187,6 +199,8 @@ async def _run_arena_stream(
                             event.actor,
                             event.target,
                         )
+            if append_log is not None and game_log is None and not live_events and not live_rounds:
+                append_log(match_id, "system", "Arena stream event received.", 0, None, None)
             result = _convert_arena_response(payload, match_id, latest_data)
             if result is not None and result.status == "completed":
                 return result
@@ -478,11 +492,51 @@ def _convert_live_round_to_events(
     return _convert_game_log_to_events(match_id, game_log)
 
 
+def _convert_live_event_to_event(
+    match_id: str,
+    live_event: dict[str, Any],
+) -> GameLogEvent:
+    return GameLogEvent(
+        id=f"{match_id}-{uuid4().hex[:10]}",
+        match_id=match_id,
+        round=int(live_event.get("Round") or live_event.get("round") or 0),
+        phase=str(live_event.get("Phase") or live_event.get("phase") or "event"),
+        actor=_optional_string(live_event.get("Actor") or live_event.get("actor")),
+        target=_optional_string(live_event.get("Target") or live_event.get("target")),
+        message=str(live_event.get("Message") or live_event.get("message") or "").strip(),
+        timestamp=str(
+            live_event.get("Timestamp")
+            or live_event.get("timestamp")
+            or datetime.now(UTC).isoformat()
+        ),
+    )
+
+
+def _optional_string(value: Any) -> str | None:
+    if value is None:
+        return None
+    return str(value)
+
+
 def _display_name(value: Any, participants: dict[str, Any]) -> str | None:
     if value is None:
         return None
     text = str(value)
     return str(participants.get(text, text))
+
+
+def _find_live_events(data: Any) -> list[dict[str, Any]]:
+    found: list[dict[str, Any]] = []
+    if isinstance(data, dict):
+        live_event = data.get("LiveEvent") or data.get("live_event")
+        if isinstance(live_event, dict):
+            found.append(live_event)
+        for value in data.values():
+            found.extend(_find_live_events(value))
+    elif isinstance(data, list):
+        for item in data:
+            found.extend(_find_live_events(item))
+    return found
 
 
 def _find_live_round_logs(data: Any) -> list[dict[str, Any]]:
