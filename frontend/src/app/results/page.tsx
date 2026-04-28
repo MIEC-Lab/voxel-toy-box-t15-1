@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getServerApiBaseUrl } from "@/lib/api";
 import type { MatchResult } from "@/lib/types";
 import { PlayerCardGrid } from "@/components/player-card-grid";
+import type { RoundDetailData, RoundEventType } from "@/components/round-detail";
 import { ResultSummaryHero } from "@/components/result-summary-hero";
 import { ResultSummaryHighlights } from "@/components/result-summary-highlights";
 import {
@@ -9,6 +10,7 @@ import {
   buildResultPresentation,
   normalizeMatchResult,
 } from "@/components/result-summary-model";
+import { RoundTimeline } from "@/components/round-timeline";
 import { ResultsAutoRefresh } from "./results-auto-refresh";
 
 export const dynamic = "force-dynamic";
@@ -54,6 +56,76 @@ async function getMatchResult(matchId: string) {
   }
 }
 
+function classifyRoundEvent(event: string): RoundEventType {
+  const lowerEvent = event.toLowerCase();
+
+  if (
+    lowerEvent.includes("eliminated") ||
+    lowerEvent.includes("removed") ||
+    lowerEvent.includes("out") ||
+    lowerEvent.includes("淘汰")
+  ) {
+    return "elimination";
+  }
+
+  if (
+    lowerEvent.includes("voted") ||
+    lowerEvent.includes("vote") ||
+    lowerEvent.includes("投票")
+  ) {
+    return "vote";
+  }
+
+  if (
+    lowerEvent.includes("remaining") ||
+    lowerEvent.includes("survive") ||
+    lowerEvent.includes("status") ||
+    lowerEvent.includes("score") ||
+    lowerEvent.includes("剩余")
+  ) {
+    return "status";
+  }
+
+  return "event";
+}
+
+function convertRoundLogsToDetails(
+  roundLogs: MatchResult["round_logs"]
+): RoundDetailData[] {
+  return roundLogs.map((round) => ({
+    id: round.round,
+    events: round.events.map((event) => ({
+      text: event,
+      type: classifyRoundEvent(event),
+    })),
+    remainingPlayers: round.remaining_players,
+    chats: [],
+    predictions: [],
+    actions: round.events
+      .filter((event) => {
+        const eventType = classifyRoundEvent(event);
+        return eventType === "elimination" || eventType === "vote";
+      })
+      .map((event) => ({
+        player: `Round ${round.round}`,
+        action: event,
+      })),
+    observations: [
+      ...round.events.map((event, index) => ({
+        label: `Event ${index + 1}`,
+        value: event,
+      })),
+      {
+        label: "Remaining Players",
+        value:
+          round.remaining_players.length > 0
+            ? round.remaining_players.join(", ")
+            : "No remaining players recorded.",
+      },
+    ],
+  }));
+}
+
 export default async function ResultsPage({ searchParams }: ResultsPageProps) {
   const params = (await searchParams) ?? {};
   const matchId = getSingleValue(params.matchId, "mock-match-001");
@@ -88,6 +160,7 @@ export default async function ResultsPage({ searchParams }: ResultsPageProps) {
 
   const presentation = buildResultPresentation(result);
   const isRunning = result.status === "running";
+  const roundDetails = convertRoundLogsToDetails(result.round_logs);
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_24%),radial-gradient(circle_at_82%_12%,rgba(250,204,21,0.12),transparent_18%),linear-gradient(135deg,#020617,#0f172a_45%,#111827)] text-white">
@@ -138,109 +211,7 @@ export default async function ResultsPage({ searchParams }: ResultsPageProps) {
 
           <div className="grid gap-8 xl:grid-cols-[1.08fr_0.92fr]">
             <PlayerCardGrid players={presentation.players} />
-
-            <section className="relative overflow-hidden rounded-[38px] border border-white/10 bg-[linear-gradient(135deg,rgba(15,23,42,0.94),rgba(17,24,39,0.82)_45%,rgba(30,41,59,0.92))] p-6 shadow-[0_22px_90px_rgba(2,6,23,0.24)] sm:p-8">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(125,211,252,0.16),transparent_26%),radial-gradient(circle_at_bottom_left,rgba(251,191,36,0.1),transparent_24%)]" />
-
-              <div className="relative">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                  <div>
-                    <p className="text-sm font-semibold uppercase tracking-[0.3em] text-cyan-300">
-                      Match Overview
-                    </p>
-                    <h2 className="mt-3 text-3xl font-black text-white sm:text-4xl">
-                      Round Timeline
-                    </h2>
-                    <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300">
-                      A compact narrative of how the game progressed, including
-                      action feed events and the players still standing after
-                      each round.
-                    </p>
-                  </div>
-
-                  <div className="rounded-[26px] border border-white/10 bg-white/6 px-5 py-4 text-sm leading-7 text-slate-200">
-                    <p className="font-semibold uppercase tracking-[0.22em] text-white/70">
-                      Feed
-                    </p>
-                    <p className="mt-1 text-2xl font-black text-white">
-                      {presentation.stats.totalEvents}
-                    </p>
-                    <p>events captured</p>
-                  </div>
-                </div>
-
-                {result.round_logs.length === 0 ? (
-                  <div className="mt-8 rounded-[30px] border border-white/10 bg-slate-950/55 p-6">
-                    <p className="text-lg font-semibold text-white">
-                      Round-by-round artifacts are not available for this match yet.
-                    </p>
-                    <p className="mt-4 text-sm leading-7 text-slate-300">
-                      The top summary and player cards still render from the
-                      available scores and status labels, so the presentation
-                      stays complete even when detailed logs are missing.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="mt-8 space-y-4">
-                    {result.round_logs.map((round) => (
-                      <article
-                        key={round.round}
-                        className="rounded-[30px] border border-white/10 bg-slate-950/55 p-5"
-                      >
-                        <div className="flex gap-4">
-                          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-300/10 text-lg font-black text-cyan-100">
-                            {round.round}
-                          </div>
-
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                              <div>
-                                <h3 className="text-xl font-bold text-white">
-                                  Round {round.round}
-                                </h3>
-                                <p className="mt-1 text-sm text-slate-400">
-                                  {round.events.length} events recorded
-                                </p>
-                              </div>
-
-                              <div className="flex flex-wrap gap-2">
-                                <span className="rounded-full border border-white/10 bg-white/6 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-slate-200">
-                                  Remaining {round.remaining_players.length}
-                                </span>
-                              </div>
-                            </div>
-
-                            <ul className="mt-5 space-y-3">
-                              {round.events.map((event, index) => (
-                                <li
-                                  key={`${round.round}-${index}-${event}`}
-                                  className="rounded-2xl border border-white/8 bg-white/5 px-4 py-3 text-sm leading-7 text-slate-200"
-                                >
-                                  {event}
-                                </li>
-                              ))}
-                            </ul>
-
-                            {round.remaining_players.length > 0 ? (
-                              <div className="mt-5 flex flex-wrap gap-2">
-                                {round.remaining_players.map((player) => (
-                                  <span
-                                    key={`${round.round}-${player}`}
-                                    className="rounded-full border border-cyan-300/16 bg-cyan-300/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100"
-                                  >
-                                    {player}
-                                  </span>
-                                ))}
-                              </div>
-                            ) : null}
-                          </div>
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </section>
+            <RoundTimeline rounds={roundDetails} />
           </div>
         </div>
       </section>
