@@ -22,6 +22,25 @@ export type MatchResult = {
   round_logs: RoundLog[];
 };
 
+export type GameLogEvent = {
+  id: string;
+  match_id: string;
+  round: number;
+  phase: string;
+  actor?: string | null;
+  target?: string | null;
+  message: string;
+  timestamp: string;
+};
+
+export type MatchLogsResponse = {
+  match_id: string;
+  status: string;
+  source: string;
+  event_count: number;
+  events: GameLogEvent[];
+};
+
 export type MatchCreateResponse = {
   id: string;
   game: string;

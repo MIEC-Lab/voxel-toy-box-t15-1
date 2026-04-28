@@ -2,11 +2,12 @@ import json
 import os
 import asyncio
 from typing import Any
+from datetime import UTC, datetime
 from uuid import uuid4
 from collections.abc import Callable
 from urllib.parse import urljoin
 
-from app.schemas import MatchResultResponse, PlayerResult, RoundLog, StartMatchRequest
+from app.schemas import GameLogEvent, MatchResultResponse, PlayerResult, RoundLog, StartMatchRequest
 from app.simulator import normalize_players
 
 
@@ -15,6 +16,8 @@ class ArenaUnavailableError(RuntimeError):
 
 
 BACKGROUND_ARENA_TASKS: set[asyncio.Task[None]] = set()
+LogAppender = Callable[[str, str, str, int, str | None, str | None], GameLogEvent]
+LogReplacer = Callable[[str, list[GameLogEvent]], None]
 
 
 def should_use_arena(payload: StartMatchRequest) -> bool:
@@ -34,19 +37,48 @@ async def start_arena_match_background(
     payload: StartMatchRequest,
     match_id: str,
     update_result: Callable[[MatchResultResponse], None],
+    append_log: LogAppender | None = None,
+    replace_logs: LogReplacer | None = None,
 ) -> MatchResultResponse:
     arena_url, participants = await _prepare_arena_request(payload)
     pending = _pending_arena_result(payload, match_id, participants)
     print(f"[arena] accepted {match_id}; listening for stream artifacts")
+    if append_log is not None:
+        append_log(
+            match_id,
+            "system",
+            f"Arena accepted the request with {len(participants)} participant(s).",
+            0,
+            None,
+            None,
+        )
 
     async def runner() -> None:
         try:
-            result = await _run_arena_stream(payload, match_id, arena_url, participants)
+            result = await _run_arena_stream(
+                payload,
+                match_id,
+                arena_url,
+                participants,
+                append_log,
+                replace_logs,
+            )
         except Exception as exc:
             print(f"[arena] {match_id} failed: {exc}")
+            if append_log is not None:
+                append_log(match_id, "system", f"Arena run failed: {exc}", 0, None, None)
             result = _failed_arena_result(payload, match_id, participants, str(exc))
         else:
             print(f"[arena] {match_id} finished with status={result.status}")
+            if append_log is not None:
+                append_log(
+                    match_id,
+                    "system",
+                    f"Arena stream finished with status={result.status}.",
+                    0,
+                    None,
+                    None,
+                )
         update_result(result)
 
     task = asyncio.create_task(runner())
@@ -84,6 +116,8 @@ async def _run_arena_stream(
     match_id: str,
     arena_url: str,
     participants: dict[str, str],
+    append_log: LogAppender | None = None,
+    replace_logs: LogReplacer | None = None,
 ) -> MatchResultResponse:
     try:
         import httpx
@@ -105,6 +139,15 @@ async def _run_arena_stream(
             "max_turns": max(payload.rounds, 1),
         },
     }
+    if append_log is not None:
+        append_log(
+            match_id,
+            "system",
+            f"Sent Arena config: game={payload.game}, max_turns={max(payload.rounds, 1)}.",
+            0,
+            None,
+            None,
+        )
     send_message_payload = {
         "message": {
             "role": "user",
@@ -126,6 +169,24 @@ async def _run_arena_stream(
         ):
             latest_data = response.model_dump(mode="json", exclude_none=True)
             print(f"[arena] {match_id} stream event received")
+            if append_log is not None:
+                append_log(match_id, "system", "Arena stream event received.", 0, None, None)
+
+            game_log = _find_game_log(latest_data)
+            if game_log is not None and replace_logs is not None:
+                replace_logs(match_id, _convert_game_log_to_events(match_id, game_log))
+
+            for live_round in _find_live_round_logs(latest_data):
+                if append_log is not None:
+                    for event in _convert_live_round_to_events(match_id, live_round):
+                        append_log(
+                            event.match_id,
+                            event.phase,
+                            event.message,
+                            event.round,
+                            event.actor,
+                            event.target,
+                        )
             result = _convert_arena_response(payload, match_id, latest_data)
             if result is not None and result.status == "completed":
                 return result
@@ -307,6 +368,135 @@ def _convert_round_logs(rounds: list[Any]) -> list[RoundLog]:
             )
         )
     return round_logs
+
+
+def _convert_game_log_to_events(
+    match_id: str,
+    game_log: dict[str, Any],
+) -> list[GameLogEvent]:
+    events: list[GameLogEvent] = []
+    participants = game_log.get("Participants") or {}
+
+    def add(
+        phase: str,
+        message: str,
+        round_number: int = 0,
+        actor: str | None = None,
+        target: str | None = None,
+    ) -> None:
+        events.append(
+            GameLogEvent(
+                id=f"{match_id}-{uuid4().hex[:10]}",
+                match_id=match_id,
+                round=round_number,
+                phase=phase,
+                actor=actor,
+                target=target,
+                message=message,
+                timestamp=datetime.now(UTC).isoformat(),
+            )
+        )
+
+    add(
+        "system",
+        f"Arena started {game_log.get('Game', 'Survivor')} with {game_log.get('NumPlayers', len(participants))} player(s).",
+    )
+
+    for round_item in game_log.get("Rounds") or []:
+        if not isinstance(round_item, dict):
+            continue
+        round_number = int(round_item.get("Round") or 0)
+        add("system", f"Round {round_number} started.", round_number)
+
+        chats = round_item.get("Chats") or {}
+        if isinstance(chats, dict):
+            for pair_chats in chats.values():
+                if not isinstance(pair_chats, list):
+                    continue
+                for chat in pair_chats:
+                    if not isinstance(chat, dict):
+                        continue
+                    actor = _display_name(chat.get("from"), participants)
+                    target = _display_name(chat.get("to"), participants)
+                    message = str(chat.get("message") or "").strip()
+                    if message:
+                        add("chat", message, round_number, actor, target)
+
+        predictions = round_item.get("Predictions") or {}
+        if isinstance(predictions, dict):
+            for player, player_predictions in predictions.items():
+                actor = _display_name(player, participants)
+                if not isinstance(player_predictions, dict):
+                    continue
+                for target_name, prediction_data in player_predictions.items():
+                    target = _display_name(target_name, participants)
+                    if isinstance(prediction_data, dict):
+                        prediction = prediction_data.get("prediction")
+                        reasoning = prediction_data.get("reasoning")
+                        if reasoning:
+                            add("reasoning", str(reasoning), round_number, actor, target)
+                        if prediction is not None:
+                            add("prediction", json.dumps(prediction, ensure_ascii=False), round_number, actor, target)
+
+        actions = round_item.get("Actions") or {}
+        if isinstance(actions, dict):
+            for player, action_data in actions.items():
+                actor = _display_name(player, participants)
+                if isinstance(action_data, dict):
+                    reasoning = action_data.get("reasoning")
+                    action = action_data.get("action")
+                    if reasoning:
+                        add("reasoning", str(reasoning), round_number, actor)
+                    if action is not None:
+                        add("decision", json.dumps(action, ensure_ascii=False), round_number, actor)
+
+        observations = round_item.get("Observations") or {}
+        if isinstance(observations, dict):
+            for player, observation in observations.items():
+                message = str(observation or "").strip()
+                if message:
+                    add("observation", message, round_number, _display_name(player, participants))
+        elif observations:
+            add("observation", str(observations), round_number)
+
+    scores = game_log.get("Scores") or {}
+    if scores:
+        winner_agent = max(scores, key=scores.get)
+        add("system", f"Match completed. Winner: {_display_name(winner_agent, participants)}.")
+
+    return events
+
+
+def _convert_live_round_to_events(
+    match_id: str,
+    live_round: dict[str, Any],
+) -> list[GameLogEvent]:
+    game_log = {
+        "Participants": live_round.get("Participants") or {},
+        "Rounds": [live_round],
+    }
+    return _convert_game_log_to_events(match_id, game_log)
+
+
+def _display_name(value: Any, participants: dict[str, Any]) -> str | None:
+    if value is None:
+        return None
+    text = str(value)
+    return str(participants.get(text, text))
+
+
+def _find_live_round_logs(data: Any) -> list[dict[str, Any]]:
+    found: list[dict[str, Any]] = []
+    if isinstance(data, dict):
+        live_round = data.get("LiveRound") or data.get("live_round")
+        if isinstance(live_round, dict):
+            found.append(live_round)
+        for value in data.values():
+            found.extend(_find_live_round_logs(value))
+    elif isinstance(data, list):
+        for item in data:
+            found.extend(_find_live_round_logs(item))
+    return found
 
 
 def _find_game_log(data: Any) -> dict[str, Any] | None:

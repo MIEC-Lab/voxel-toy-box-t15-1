@@ -482,12 +482,22 @@ class Agent:
             else:
                 self.states = "Game Over"
             # log the round
-            log["Rounds"].append({"Round": round,
-                             "Chats": self.chats,
-                             "Predictions": self.predictions,
-                             "Actions": self.actions,
-                             "Observations": self.observations,
-                             "NewStates": self.states})
+            round_log = {"Round": round,
+                         "Participants": log["Participants"],
+                         "Chats": self.chats,
+                         "Predictions": self.predictions,
+                         "Actions": self.actions,
+                         "Observations": self.observations,
+                         "NewStates": self.states}
+            log["Rounds"].append(round_log)
+            await updater.add_artifact(
+                parts=[
+                    Part(root=DataPart(data={
+                        "LiveRound": round_log
+                    }))
+                ],
+                name=f"Game{self.task['Id']}-Round{round}",
+            )
             await updater.update_status(
                 TaskState.working, new_agent_text_message(f"Finished round: {round}")
             )

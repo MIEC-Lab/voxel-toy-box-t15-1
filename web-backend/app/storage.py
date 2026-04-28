@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from app.schemas import MatchResultResponse
+from app.schemas import GameLogEvent, MatchResultResponse
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -14,6 +14,10 @@ def ensure_sample_data_dir() -> None:
 
 def get_sample_result_path(match_id: str) -> Path:
     return SAMPLE_DATA_DIR / f"{match_id}.json"
+
+
+def get_match_logs_path(match_id: str) -> Path:
+    return SAMPLE_DATA_DIR / f"{match_id}.logs.json"
 
 
 def save_match_result(result: MatchResultResponse) -> None:
@@ -29,6 +33,23 @@ def load_match_result(match_id: str) -> MatchResultResponse | None:
     return MatchResultResponse.model_validate(json.loads(path.read_text(encoding="utf-8")))
 
 
+def save_match_logs(match_id: str, logs: list[GameLogEvent]) -> None:
+    ensure_sample_data_dir()
+    path = get_match_logs_path(match_id)
+    payload = [event.model_dump() for event in logs]
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def load_match_logs(match_id: str) -> list[GameLogEvent]:
+    path = get_match_logs_path(match_id)
+    if not path.exists():
+        return []
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, list):
+        return []
+    return [GameLogEvent.model_validate(item) for item in payload]
+
+
 def list_saved_match_ids() -> list[str]:
     ensure_sample_data_dir()
-    return sorted(path.stem for path in SAMPLE_DATA_DIR.glob("*.json"))
+    return sorted(path.stem for path in SAMPLE_DATA_DIR.glob("*.json") if not path.name.endswith(".logs.json"))

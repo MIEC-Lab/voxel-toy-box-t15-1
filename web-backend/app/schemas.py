@@ -17,6 +17,17 @@ class RoundLog(BaseModel):
     remaining_players: list[str] = Field(default_factory=list)
 
 
+class GameLogEvent(BaseModel):
+    id: str
+    match_id: str
+    round: int = 0
+    phase: str = "system"
+    actor: str | None = None
+    target: str | None = None
+    message: str
+    timestamp: str
+
+
 class MatchResultResponse(BaseModel):
     match_id: str
     game: str
@@ -50,6 +61,14 @@ class DataSourceResponse(BaseModel):
     source: str
     match_count: int
     matches: list[str]
+
+
+class MatchLogsResponse(BaseModel):
+    match_id: str
+    status: str
+    source: str
+    event_count: int
+    events: list[GameLogEvent] = Field(default_factory=list)
 
 
 class HealthResponse(BaseModel):

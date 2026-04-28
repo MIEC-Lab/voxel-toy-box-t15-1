@@ -26,6 +26,7 @@ build/
 
 # Local generated match artifacts
 web-backend/sample-data/match-*.json
+tmp/
 
 # OS / editor
 .DS_Store

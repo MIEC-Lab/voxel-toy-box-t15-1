@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getPublicApiBaseUrl, normalizeApiBaseUrl } from "@/lib/api";
-import type { MatchResult } from "@/lib/types";
+import type { GameLogEvent, MatchLogsResponse, MatchResult } from "@/lib/types";
+import { GameProcessLog } from "@/components/game-process-log";
 import { PlayerCardGrid } from "@/components/player-card-grid";
 import type { RoundDetailData, RoundEventType } from "@/components/round-detail";
 import { ResultSummaryHero } from "@/components/result-summary-hero";
@@ -112,6 +113,7 @@ export function ResultsClient() {
   const apiBase = resolveApiBaseUrl(apiBaseParam);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [result, setResult] = useState<MatchResult | null>(null);
+  const [processEvents, setProcessEvents] = useState<GameLogEvent[]>([]);
   const [errorMessage, setErrorMessage] = useState("");
   const [refreshIndex, setRefreshIndex] = useState(0);
 
@@ -154,11 +156,34 @@ export function ResultsClient() {
           setLoadState("ready");
           setErrorMessage("");
         }
+
+        try {
+          const logsResponse = await fetch(
+            `${apiBase}/api/matches/${encodeURIComponent(matchId)}/logs`,
+            {
+              cache: "no-store",
+            }
+          );
+
+          if (!logsResponse.ok) {
+            return;
+          }
+
+          const logsPayload = (await logsResponse.json()) as MatchLogsResponse;
+
+          if (!cancelled) {
+            setProcessEvents(logsPayload.events);
+          }
+        } catch {
+          // Result data is more important than logs. Keep the page usable if
+          // the log endpoint is temporarily unavailable.
+        }
       } catch (error) {
         if (!cancelled) {
           const message =
             error instanceof Error ? error.message : "Unable to load result.";
           setResult(null);
+          setProcessEvents([]);
           setLoadState("error");
           setErrorMessage(message);
         }
@@ -261,6 +286,11 @@ export function ResultsClient() {
           <ResultSummaryHighlights
             result={displayResult}
             stats={presentation.stats}
+          />
+
+          <GameProcessLog
+            events={processEvents}
+            isPolling={displayResult.status === "running"}
           />
 
           <div className="grid gap-8 xl:grid-cols-[1.08fr_0.92fr]">
