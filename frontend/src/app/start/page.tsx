@@ -31,8 +31,8 @@ function getInitialBackendUrl() {
 export default function StartPage() {
   const router = useRouter();
   const [backendUrl, setBackendUrl] = useState(getInitialBackendUrl);
-  const [playerCount, setPlayerCount] = useState("6");
-  const [maxRounds, setMaxRounds] = useState("10");
+  const [playerCount, setPlayerCount] = useState("2");
+  const [maxRounds, setMaxRounds] = useState("2");
   const [useArena, setUseArena] = useState(false);
   const [agentUrls, setAgentUrls] = useState(
     "http://127.0.0.1:9018\nhttp://127.0.0.1:9019"
