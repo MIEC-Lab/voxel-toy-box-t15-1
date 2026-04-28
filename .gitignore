@@ -24,9 +24,11 @@ node_modules/
 dist/
 build/
 
+# Local generated match artifacts
+web-backend/sample-data/match-*.json
+
 # OS / editor
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
-

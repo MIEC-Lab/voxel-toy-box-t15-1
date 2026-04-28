@@ -1,11 +1,25 @@
 export const DEFAULT_API_BASE_URL = "http://127.0.0.1:8000";
 
+export function normalizeApiBaseUrl(value: string) {
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return DEFAULT_API_BASE_URL;
+  }
+
+  return trimmedValue.endsWith("/")
+    ? trimmedValue.slice(0, -1)
+    : trimmedValue;
+}
+
 export function getPublicApiBaseUrl() {
-  return process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL;
+  return normalizeApiBaseUrl(
+    process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL
+  );
 }
 
 export function getServerApiBaseUrl() {
-  return (
+  return normalizeApiBaseUrl(
     process.env.API_BASE_URL ||
     process.env.NEXT_PUBLIC_API_BASE_URL ||
     DEFAULT_API_BASE_URL

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getPublicApiBaseUrl } from "@/lib/api";
+import { getPublicApiBaseUrl, normalizeApiBaseUrl } from "@/lib/api";
 import type { MatchCreateResponse } from "@/lib/types";
 
 function buildPlayerNames(playerCount: number) {
@@ -17,8 +17,20 @@ function parseAgentUrls(value: string) {
     .filter(Boolean);
 }
 
+function getInitialBackendUrl() {
+  if (typeof window === "undefined") {
+    return getPublicApiBaseUrl();
+  }
+
+  return (
+    window.localStorage.getItem("socialcompact-api-base") ||
+    getPublicApiBaseUrl()
+  );
+}
+
 export default function StartPage() {
   const router = useRouter();
+  const [backendUrl, setBackendUrl] = useState(getInitialBackendUrl);
   const [playerCount, setPlayerCount] = useState("6");
   const [maxRounds, setMaxRounds] = useState("10");
   const [useArena, setUseArena] = useState(false);
@@ -35,6 +47,7 @@ export default function StartPage() {
 
     const players = Number(playerCount);
     const rounds = Number(maxRounds);
+    const apiBase = normalizeApiBaseUrl(backendUrl);
 
     if (!Number.isInteger(players) || players < 2) {
       setStatus("Player count must be an integer of at least 2.");
@@ -47,10 +60,12 @@ export default function StartPage() {
     }
 
     setIsSubmitting(true);
-    setStatus("Starting match through the backend...");
+    setStatus(`Starting match through ${apiBase}...`);
 
     try {
-      const response = await fetch(`${getPublicApiBaseUrl()}/api/matches`, {
+      window.localStorage.setItem("socialcompact-api-base", apiBase);
+
+      const response = await fetch(`${apiBase}/api/matches`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -71,7 +86,11 @@ export default function StartPage() {
 
       const data = (await response.json()) as MatchCreateResponse;
       setStatus(data.message);
-      router.push(`/results?matchId=${encodeURIComponent(data.id)}`);
+      router.push(
+        `/results?matchId=${encodeURIComponent(data.id)}&apiBase=${encodeURIComponent(
+          apiBase
+        )}`
+      );
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unable to start match.";
@@ -114,8 +133,8 @@ export default function StartPage() {
             </h1>
 
             <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-300">
-              Fill in the match settings below. The page now calls the FastAPI
-              backend, creates a match result, and opens the live result view.
+              Fill in the backend URL and match settings below. The Vercel
+              frontend can connect to a local or remote FastAPI game server.
             </p>
 
             <div className="mt-8 grid gap-4 sm:grid-cols-2">
@@ -147,6 +166,23 @@ export default function StartPage() {
               </p>
 
               <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-200">
+                    Backend URL
+                  </label>
+                  <input
+                    value={backendUrl}
+                    onChange={(event) => setBackendUrl(event.target.value)}
+                    placeholder="http://127.0.0.1:8000"
+                    className="w-full rounded-2xl border border-cyan-300/20 bg-cyan-300/10 px-4 py-3 font-mono text-sm text-cyan-50 outline-none focus:border-cyan-300"
+                  />
+                  <p className="mt-2 text-xs leading-5 text-slate-400">
+                    If the backend runs on your computer, use
+                    http://127.0.0.1:8000. If it is deployed online, paste that
+                    public backend URL here.
+                  </p>
+                </div>
+
                 <div>
                   <label className="mb-2 block text-sm font-medium text-slate-200">
                     Game Name
